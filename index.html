@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Sussurros da Mata Maldita</title>
+    <style>
+        /* --- ESTÉTICA RETRÔ 8-BITS --- */
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+        :root {
+            --bg-color: #050408;
+            --ui-bg: #1a1621;
+            --ui-border: #5a5066;
+            --text-color: #c7c1ce;
+            --highlight: #d46536;
+            --verb-active: #ffffff;
+            --verb-bg-active: #d46536;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            font-family: 'VT323', monospace;
+            color: var(--text-color);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            user-select: none;
+        }
+
+        /* CANVAS THREE.JS */
+        #game-canvas {
+            flex-grow: 1;
+            image-rendering: pixelated; /* Garante pixels nítidos */
+            cursor: crosshair;
+        }
+
+        /* INTERFACE (UI) */
+        #ui-container {
+            height: 240px;
+            background-color: var(--ui-bg);
+            border-top: 4px solid var(--ui-border);
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.8);
+        }
+
+        .row { display: flex; gap: 10px; height: 100%; }
+
+        /* PAINEL ESQUERDO: VERBOS */
+        #verbs-panel {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-gap: 5px;
+            border: 2px solid var(--ui-border);
+            padding: 5px;
+            background: #110e14;
+        }
+
+        .verb-btn {
+            background: transparent;
+            border: none;
+            color: var(--highlight);
+            font-family: 'VT323', monospace;
+            font-size: 1.4rem;
+            cursor: pointer;
+            text-align: left;
+            text-transform: uppercase;
+        }
+
+        .verb-btn:hover { color: #fff; }
+        .verb-btn.active {
+            background-color: var(--verb-bg-active);
+            color: var(--verb-active);
+        }
+
+        /* PAINEL CENTRAL: LOG DE TEXTO */
+        #log-panel {
+            flex: 2;
+            background: #000;
+            border: 2px solid var(--ui-border);
+            padding: 10px;
+            overflow-y: auto;
+            font-size: 1.2rem;
+            line-height: 1.4;
+            display: flex;
+            flex-direction: column-reverse; /* Texto novo embaixo */
+        }
+        
+        .log-entry { margin-bottom: 6px; border-bottom: 1px dashed #333; padding-bottom: 2px; }
+        .log-entry.combat { color: #ff5555; }
+        .log-entry.item { color: #55ffff; }
+        .log-entry.narrative { color: #aaa; font-style: italic; }
+
+        /* PAINEL DIREITO: INVENTÁRIO E STATUS */
+        #side-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        #stats-box {
+            border: 2px solid var(--ui-border);
+            padding: 5px;
+            font-size: 1.2rem;
+            background: #110e14;
+        }
+
+        #inventory-grid {
+            flex-grow: 1;
+            border: 2px solid var(--ui-border);
+            background: #110e14;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-gap: 2px;
+            padding: 2px;
+            align-content: start;
+        }
+
+        .inv-slot {
+            width: 100%;
+            aspect-ratio: 1;
+            border: 1px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        
+        .inv-slot:hover { border-color: var(--highlight); }
+        .inv-slot img { width: 80%; height: 80%; image-rendering: pixelated; }
+
+        /* TOOLTIP */
+        #tooltip {
+            position: absolute;
+            background: rgba(0,0,0,0.9);
+            border: 1px solid #fff;
+            color: #fff;
+            padding: 4px 8px;
+            font-size: 1rem;
+            pointer-events: none;
+            display: none;
+            z-index: 1000;
+        }
+
+        /* OVERLAY DE MENSAGEM (START/GAME OVER) */
+        #overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        h1 { font-size: 4rem; color: var(--highlight); margin: 0; text-shadow: 4px 4px 0 #000; text-align: center;}
+        .btn-start {
+            margin-top: 20px;
+            padding: 10px 30px;
+            font-size: 2rem;
+            font-family: 'VT323', monospace;
+            background: var(--highlight);
+            border: 4px solid #fff;
+            cursor: pointer;
+            color: #fff;
+        }
+        .btn-start:hover { background: #fff; color: #000; }
+
+        /* Scrollbar customizada */
+        ::-webkit-scrollbar { width: 10px; }
+        ::-webkit-scrollbar-track { background: #111; }
+        ::-webkit-scrollbar-thumb { background: #444; border: 1px solid #000; }
+
+    </style>
+    <!-- IMPORTANDO THREE.JS VIA CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <!-- MENSAGEM INICIAL / GAME OVER -->
+    <div id="overlay">
+        <h1>SUSSURROS DA<br>MATA MALDITA</h1>
+        <p style="font-size: 1.5rem; color: #888;">Um RPG 8-Bits Point-and-Click</p>
+        <button class="btn-start" onclick="startGame()">ENTRAR NA FLORESTA</button>
+        <p style="font-size: 1rem; margin-top:20px;">Use F11 para Tela Cheia</p>
+    </div>
+
+    <!-- TOOLTIP DINÂMICO -->
+    <div id="tooltip"></div>
+
+    <!-- CANVAS DO JOGO -->
+    <div id="game-canvas"></div>
+
+    <!-- INTERFACE -->
+    <div id="ui-container">
+        <div class="row">
+            <!-- Verbos -->
+            <div id="verbs-panel">
+                <button class="verb-btn active" data-verb="ANDAR">ANDAR</button>
+                <button class="verb-btn" data-verb="OLHAR">OLHAR</button>
+                <button class="verb-btn" data-verb="PEGAR">PEGAR</button>
+                <button class="verb-btn" data-verb="USAR">USAR</button>
+                <button class="verb-btn" data-verb="FALAR">FALAR</button>
+                <button class="verb-btn" data-verb="ABRIR">ABRIR</button>
+                <button class="verb-btn" data-verb="ATACAR">ATACAR</button>
+                <button class="verb-btn" data-verb="EMPURRAR">EMPURRAR</button>
+                <button class="verb-btn" data-verb="DAR">DAR</button>
+            </div>
+
+            <!-- Log -->
+            <div id="log-panel">
+                <div class="log-entry narrative">Você está na orla da floresta antiga...</div>
+            </div>
+
+            <!-- Stats & Inv -->
+            <div id="side-panel">
+                <div id="stats-box">
+                    VIGOR: <span id="hp-val">10</span>/20<br>
+                    SORTE: <span id="luck-val">8</span>
+                </div>
+                <div id="inventory-grid">
+                    <!-- Slots gerados via JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+/**
+ * SUSSURROS DA MATA MALDITA
+ * Arquivo Único - Three.js + Canvas API + Web Audio API
+ */
+
+// --- 1. SISTEMA DE ÁUDIO (Procedural / Synth) ---
+const AudioSys = {
+    ctx: null,
+    init: function() {
+        window.AudioContext = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AudioContext();
+    },
+    playTone: function(freq, type, duration, vol=0.1) {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+        gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + duration);
+    },
+    sfx: {
+        step: () => AudioSys.playTone(100, 'triangle', 0.05, 0.05),
+        click: () => AudioSys.playTone(800, 'square', 0.05, 0.05),
+        error: () => AudioSys.playTone(150, 'sawtooth', 0.2, 0.1),
+        item: () => {
+            AudioSys.playTone(1200, 'sine', 0.1, 0.1); 
+            setTimeout(()=>AudioSys.playTone(1800, 'sine', 0.2, 0.1), 100);
+        },
+        hit: () => AudioSys.playTone(60, 'sawtooth', 0.1, 0.2),
+        win: () => {
+            [440, 554, 659, 880].forEach((f, i) => setTimeout(() => AudioSys.playTone(f, 'square', 0.3, 0.1), i*150));
+        }
+    },
+    startAmbience: function() {
+        // Simulação simples de vento/ambiente com ruído rosa (simplificado)
+        if (!this.ctx) return;
+        // Para brevidade, focaremos nos SFX reativos.
+    }
+};
+
+// --- 2. GERADOR DE ASSETS GRÁFICOS (Pixel Art Procedural) ---
+const Art = {
+    cache: {},
+    // Cria textura Three.js a partir de uma matriz de cores simples
+    createTexture: function(name, width, height, palette, pixels) {
+        if (this.cache[name]) return this.cache[name];
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        // Desenha os pixels
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const colorCode = pixels[y * width + x];
+                if (colorCode !== 0) { // 0 é transparente
+                    ctx.fillStyle = palette[colorCode];
+                    ctx.fillRect(x, y, 1, 1);
+                }
+            }
+        }
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.magFilter = THREE.NearestFilter; // Pixel art nítido
+        texture.minFilter = THREE.NearestFilter;
+        this.cache[name] = texture;
+        return texture;
+    },
+    // Paleta de Cores (Pico-8 inspirado)
+    pal: {
+        blk: '#000000', blu: '#1d2b53', pur: '#7e2553', grn: '#008751',
+        brn: '#ab5236', gry: '#5f574f', wht: '#fff1e8', red: '#ff004d',
+        org: '#ffa300', yel: '#ffec27', gr2: '#83769c', cyn: '#29adff'
+    },
+    generateAssets: function() {
+        const P = this.pal;
+        // 8x8 ou 16x16 representações simplificadas
+        // Chão (Tile)
+        this.createTexture('grass', 8, 8, {1:P.grn, 2:P.blk}, 
+            [1,1,1,1,1,1,1,1, 1,2,1,1,1,1,2,1, 1,1,1,1,1,1,1,1, 1,1,2,1,1,2,1,1,
+             1,1,1,1,1,1,1,1, 2,1,1,1,1,1,1,2, 1,1,1,1,1,1,1,1, 1,1,1,2,1,1,1,1]);
+        
+        // Árvore (Sprite)
+        this.createTexture('tree', 16, 16, {1:P.grn, 2:P.brn, 3:P.blk},
+            [0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,
+             0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,
+             0,1,1,1,3,1,1,1,1,1,0,0,0,0,0,0,
+             0,1,1,1,1,1,3,1,1,1,0,0,0,0,0,0,
+             0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,
+             0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,
+             0,0,0,0,2,2,2,0,0,0,0,0,0,0,0,0,
+             0,0,0,0,2,3,2,0,0,0,0,0,0,0,0,0,
+             0,0,0,0,2,2,2,0,0,0,0,0,0,0,0,0, // Tronco
+             0,0,0,2,2,2,2,2,0,0,0,0,0,0,0,0, // Raiz
+             ].concat(new Array(16*6).fill(0)));
+
+        // Personagem/NPC (Genérico)
+        this.createTexture('npc', 8, 8, {1:P.wht, 2:P.blu, 3:P.red}, 
+            [0,0,1,1,1,0,0,0, 
+             0,0,1,3,1,0,0,0, 
+             0,2,2,2,2,2,0,0, 
+             0,0,2,2,2,0,0,0,
+             0,0,2,0,2,0,0,0,
+             0,0,1,0,1,0,0,0,
+             0,0,0,0,0,0,0,0,
+             0,0,0,0,0,0,0,0]);
+
+        // Inimigo (Caveira)
+        this.createTexture('skull', 8, 8, {1:P.wht, 2:P.blk}, 
+            [0,0,1,1,1,0,0,0, 
+             0,1,1,1,1,1,0,0, 
+             1,1,2,1,2,1,1,0, 
+             1,1,1,1,1,1,1,0, 
+             0,1,2,1,2,1,0,0, 
+             0,0,1,2,1,0,0,0,
+             0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]);
+
+        // Item (Chave/Ouro)
+        this.createTexture('item', 8, 8, {1:P.yel, 2:P.org}, 
+            [0,0,1,1,1,0,0,0, 
+             0,1,2,2,2,1,0,0, 
+             0,1,2,1,2,1,0,0, 
+             0,0,1,2,1,0,0,0, 
+             0,0,0,1,0,0,0,0, 
+             0,0,0,1,0,0,0,0,
+             0,0,1,1,1,0,0,0, 0,0,0,0,0,0,0,0]);
+             
+        // Porta/Portal
+        this.createTexture('door', 16, 16, {1:P.gry, 2:P.blk},
+            new Array(256).fill(1).map((v,i) => (i%16===0 || i%16===15 || i<16) ? 1 : 2));
+    }
+};
+
+// --- 3. ESTADO E LÓGICA DO JOGO ---
+const Game = {
+    state: {
+        currentVerb: 'ANDAR',
+        inventory: [],
+        flags: {}, // Armazena estados (porta aberta, boss morto)
+        stats: { hp: 20, maxHp: 20, luck: 10 },
+        location: 'start'
+    },
+    
+    // Motor de Textos e Lógica
+    log: function(text, type='normal') {
+        const logPanel = document.getElementById('log-panel');
+        const entry = document.createElement('div');
+        entry.className = `log-entry ${type}`;
+        entry.innerText = `> ${text}`;
+        logPanel.prepend(entry);
+        // Limite de logs para não travar
+        if (logPanel.children.length > 50) logPanel.lastChild.remove();
+    },
+
+    // --- AÇÕES E VERBOS ---
+    handleAction: function(objId, objData) {
+        const verb = this.state.currentVerb;
+        const flags = this.state.flags;
+
+        AudioSys.sfx.click();
+
+        // Lógica genérica de movimento
+        if (verb === 'ANDAR') {
+            if (objData.type === 'exit') {
+                this.loadScene(objData.target);
+                AudioSys.sfx.step();
+                return;
+            } else {
+                this.log("Não posso ir para lá.", "narrative");
+                AudioSys.sfx.error();
+                return;
+            }
+        }
+
+        // Lógica específica do objeto
+        if (objId === 'old_man') {
+            if (verb === 'FALAR') {
+                this.log("Velho: 'A mata devora os tolos. Pegue o talismã nas ruínas antes de enfrentar o Guardião.'", "narrative");
+            } else if (verb === 'OLHAR') {
+                this.log("Um morador local com olhos aterrorizados.");
+            } else {
+                this.log("Ele não reagiu.");
+            }
+        }
+        else if (objId === 'chest') {
+            if (verb === 'ABRIR') {
+                if (flags.chestOpen) {
+                    this.log("Já está aberto.");
+                } else {
+                    flags.chestOpen = true;
+                    Scene.updateVisuals(); // Troca sprite se possível
+                    this.log("Você abriu o baú velho. Tem uma poção dentro!");
+                    AudioSys.sfx.item();
+                    // Adiciona item ao mundo (simulado aqui apenas adicionando ao inv ou log)
+                    this.addToInventory('Poção');
+                }
+            } else if (verb === 'OLHAR') this.log("Um baú de madeira podre.");
+        }
+        else if (objId === 'guardian') {
+            if (verb === 'ATACAR') {
+                this.combat('Guardião Corrompido', 15);
+            } else if (verb === 'FALAR') {
+                this.log("Guardião: 'GRRRRAAAAHHH!' (Ele não parece querer papo).", "combat");
+            } else if (verb === 'OLHAR') {
+                this.log("Uma massa de vinhas e ossos.");
+            }
+        }
+        else if (objId === 'key_item') {
+            if (verb === 'PEGAR') {
+                this.addToInventory('Chave Enferrujada');
+                flags.hasKey = true;
+                Scene.removeObject(objId); // Remove da cena 3D
+                this.log("Pegou a Chave Enferrujada.");
+                AudioSys.sfx.item();
+            } else if (verb === 'OLHAR') this.log("Uma chave antiga no chão.");
+        }
+        else if (objId === 'gate') {
+            if (verb === 'ABRIR') {
+                if (flags.hasKey) {
+                    this.log("A chave gira! O portão se abre.");
+                    flags.gateOpen = true;
+                    AudioSys.sfx.win(); // Som de sucesso
+                    Scene.loadScene('deep_forest'); // Força transição ou habilita
+                } else {
+                    this.log("Trancado. Precisa de uma chave.", "error");
+                    AudioSys.sfx.error();
+                }
+            } else if (verb === 'OLHAR') this.log("Um portão de ferro bloqueando o caminho.");
+        }
+        else {
+            // Resposta padrão
+            const responses = ["Nada acontece.", "Não funcionou.", "Sem efeito."];
+            this.log(responses[Math.floor(Math.random() * responses.length)]);
+        }
+    },
+
+    addToInventory: function(itemName) {
+        this.state.inventory.push(itemName);
+        this.updateUI();
+    },
+
+    updateUI: function() {
+        // Stats
+        document.getElementById('hp-val').innerText = this.state.stats.hp;
+        
+        // Inv
+        const grid = document.getElementById('inventory-grid');
+        grid.innerHTML = '';
+        this.state.inventory.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'inv-slot';
+            div.title = item;
+            // Ícone gerado (reusando a textura do item convertida para dataURL seria ideal, 
+            // mas aqui usaremos texto ou emoji para simplicidade no DOM)
+            div.innerText = item.substring(0,2); 
+            div.onclick = () => {
+                this.log(`Item selecionado: ${item}`);
+                // Lógica de combinar/usar poderia vir aqui
+            };
+            grid.appendChild(div);
+        });
+    },
+
+    combat: function(enemyName, enemyHp) {
+        this.log(`Combate iniciado contra ${enemyName}!`, "combat");
+        // Simulação simples
+        const playerRoll = Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1;
+        const enemyRoll = Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1;
+        
+        if (playerRoll >= enemyRoll) {
+            this.log(`Você acertou! (Rolagem ${playerRoll} vs ${enemyRoll})`, "item");
+            enemyHp -= 5;
+            AudioSys.sfx.hit();
+            if (enemyHp <= 0) {
+                this.log(`${enemyName} foi derrotado!`, "win");
+                AudioSys.sfx.win();
+                this.state.flags.bossDead = true;
+                Scene.removeObject('guardian');
+            } else {
+                // Recursão simples para continuar combate ou turno
+                setTimeout(() => this.combat(enemyName, enemyHp), 1000);
+            }
+        } else {
+            this.log(`O inimigo te acertou! (Rolagem ${playerRoll} vs ${enemyRoll})`, "combat");
+            this.state.stats.hp -= 2;
+            AudioSys.sfx.hit();
+            this.updateUI();
+            if (this.state.stats.hp <= 0) {
+                this.log("VOCÊ MORREU...", "combat");
+                setTimeout(() => alert("Game Over - Recarregue para tentar novamente"), 1000);
+            } else {
+                setTimeout(() => this.combat(enemyName, enemyHp), 1000);
+            }
+        }
+    },
+
+    loadScene: function(sceneKey) {
+        Scene.build(sceneKey);
+        this.log(`--- ${Scene.data[sceneKey].name} ---`, "narrative");
+        this.log(Scene.data[sceneKey].desc);
+    }
+};
+
+// --- 4. CENA E RENDERIZAÇÃO (THREE.JS) ---
+const Scene = {
+    scene: null,
+    camera: null,
+    renderer: null,
+    raycaster: new THREE.Raycaster(),
+    mouse: new THREE.Vector2(),
+    objects: [], // Armazena objetos interativos
+    
+    init: function() {
+        const container = document.getElementById('game-canvas');
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+
+        // Câmera Ortográfica para visual 2D puro
+        // Zoom baixo para mostrar pixels grandes
+        const aspect = w / h;
+        const d = 10; // View size
+        this.camera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 1, 1000);
+        this.camera.position.set(20, 20, 20); // Isométrico fake
+        this.camera.lookAt(0, 0, 0);
+
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x050408); // Fundo escuro
+
+        this.renderer = new THREE.WebGLRenderer({ antialias: false });
+        this.renderer.setSize(w, h);
+        this.renderer.setPixelRatio(window.devicePixelRatio > 1 ? 1 : 1); // Força 1 para pixel art crisp
+        container.appendChild(this.renderer.domElement);
+
+        // Luz simples (necessária para MeshLambert ou Phong, mas usaremos Basic para 8bit flat)
+        // Adicionando apenas para compatibilidade futura se mudar material
+        const ambient = new THREE.AmbientLight(0xffffff, 1);
+        this.scene.add(ambient);
+
+        // Eventos de Mouse
+        this.renderer.domElement.addEventListener('mousemove', this.onMouseMove.bind(this));
+        this.renderer.domElement.addEventListener('mousedown', this.onClick.bind(this));
+        window.addEventListener('resize', this.onResize.bind(this));
+
+        this.animate();
+    },
+
+    // Dados das Cenas (Mapa do Jogo)
+    data: {
+        'start': {
+            name: 'Vila Decadente',
+            desc: 'A fumaça sobe das chaminés frias. Um caminho leva à floresta.',
+            map: [
+                { id: 'old_man', type: 'npc', pos: [-2, 0, -2], sprite: 'npc', name: 'Velho' },
+                { id: 'sign', type: 'prop', pos: [2, 0, 0], sprite: 'item', name: 'Placa' }, // Placeholder
+                { id: 'forest_entry', type: 'exit', target: 'forest_path', pos: [5, 0, -5], sprite: 'door', name: 'Entrada da Mata' }
+            ]
+        },
+        'forest_path': {
+            name: 'Trilha da Floresta',
+            desc: 'Árvores retorcidas bloqueiam a luz. Há dois caminhos.',
+            map: [
+                { id: 'back', type: 'exit', target: 'start', pos: [-5, 0, 5], sprite: 'door', name: 'Voltar para Vila' },
+                { id: 'ruins_path', type: 'exit', target: 'ruins', pos: [4, 0, -4], sprite: 'door', name: 'Ruínas' },
+                { id: 'gate', type: 'prop', pos: [0, 0, -8], sprite: 'door', name: 'Portão Trancado' } // Leva ao boss
+            ],
+            trees: 10 // Gerar árvores aleatórias
+        },
+        'ruins': {
+            name: 'Ruínas Antigas',
+            desc: 'Pedras cobertas de musgo. Algo brilha no chão.',
+            map: [
+                { id: 'back_path', type: 'exit', target: 'forest_path', pos: [-6, 0, 6], sprite: 'door', name: 'Voltar' },
+                { id: 'key_item', type: 'item', pos: [0, 0, 0], sprite: 'item', name: 'Chave' },
+                { id: 'chest', type: 'prop', pos: [3, 0, -3], sprite: 'item', name: 'Baú Velho' }
+            ],
+            trees: 5
+        },
+        'deep_forest': {
+            name: 'Coração da Mata',
+            desc: 'O ar é pesado aqui. O Guardião aguarda.',
+            map: [
+                { id: 'guardian', type: 'enemy', pos: [0, 0, 0], sprite: 'skull', name: 'Guardião' }
+            ],
+            trees: 15
+        }
+    },
+
+    build: function(sceneKey) {
+        // Limpa cena anterior
+        while(this.scene.children.length > 0){ 
+            this.scene.remove(this.scene.children[0]); 
+        }
+        this.objects = [];
+        const sData = this.data[sceneKey];
+
+        // 1. Chão (Grid de tiles)
+        const planeGeo = new THREE.PlaneGeometry(1, 1);
+        const grassMat = new THREE.MeshBasicMaterial({ map: Art.cache['grass'] });
+        
+        // Cria um chão 20x20
+        for(let x=-10; x<10; x+=2) {
+            for(let z=-10; z<10; z+=2) {
+                const tile = new THREE.Mesh(planeGeo, grassMat);
+                tile.position.set(x, -1, z); // Y=-1
+                tile.rotation.x = -Math.PI / 2;
+                tile.scale.set(2, 2, 1);
+                this.scene.add(tile);
+            }
+        }
+
+        // 2. Árvores decorativas (Billboard)
+        if (sData.trees) {
+            const treeMat = new THREE.MeshBasicMaterial({ map: Art.cache['tree'], transparent: true, alphaTest: 0.5 });
+            for(let i=0; i<sData.trees; i++) {
+                const tree = new THREE.Mesh(planeGeo, treeMat);
+                const tx = (Math.random() * 16 - 8);
+                const tz = (Math.random() * 16 - 8);
+                tree.position.set(tx, 0.5, tz);
+                tree.scale.set(3, 3, 1);
+                // Billboard: Olha pra câmera mas trava rotação Y pra estilo RPG 2.5D
+                // Para "Orthographic Top-Downish", geralmente fazemos um ângulo fixo
+                tree.rotation.x = -Math.PI / 4; // Inclinação para parecer em pé na vista isométrica
+                this.scene.add(tree);
+            }
+        }
+
+        // 3. Objetos Interativos
+        sData.map.forEach(obj => {
+            // Se item já foi pego, não renderiza
+            if (obj.id === 'key_item' && Game.state.flags.hasKey) return;
+            if (obj.id === 'guardian' && Game.state.flags.bossDead) return;
+
+            const mat = new THREE.MeshBasicMaterial({ 
+                map: Art.cache[obj.sprite], 
+                transparent: true,
+                alphaTest: 0.5,
+                color: 0xffffff 
+            });
+            const mesh = new THREE.Mesh(planeGeo, mat);
+            mesh.position.set(obj.pos[0], 0, obj.pos[2]);
+            mesh.scale.set(2, 2, 1);
+            mesh.rotation.x = -Math.PI / 4; // Inclinação de sprite
+            
+            // Dados meta para interação
+            mesh.userData = { id: obj.id, type: obj.type, target: obj.target, name: obj.name };
+            
+            this.scene.add(mesh);
+            this.objects.push(mesh);
+            
+            // Sombra simples embaixo
+            const shadow = new THREE.Mesh(planeGeo, new THREE.MeshBasicMaterial({color:0x000000, transparent:true, opacity:0.3}));
+            shadow.rotation.x = -Math.PI/2;
+            shadow.position.set(obj.pos[0], -0.9, obj.pos[2]);
+            this.scene.add(shadow);
+        });
+    },
+
+    removeObject: function(id) {
+        const obj = this.objects.find(o => o.userData.id === id);
+        if (obj) {
+            this.scene.remove(obj);
+            this.objects = this.objects.filter(o => o !== obj);
+        }
+    },
+    
+    updateVisuals: function() {
+        // Recarrega cena se necessário para mudar estados visuais complexos
+        // Simplificado: nada por enquanto
+    },
+
+    onMouseMove: function(event) {
+        // Converte mouse para coordenadas normalizadas (-1 a +1)
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        // Raycasting
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const intersects = this.raycaster.intersectObjects(this.objects);
+
+        const tooltip = document.getElementById('tooltip');
+        if (intersects.length > 0) {
+            const obj = intersects[0].object;
+            // Realce
+            document.body.style.cursor = 'pointer';
+            tooltip.style.display = 'block';
+            tooltip.style.left = (event.clientX + 10) + 'px';
+            tooltip.style.top = (event.clientY + 10) + 'px';
+            tooltip.innerText = `${Game.state.currentVerb} ${obj.userData.name}`;
+            
+            obj.material.color.setHex(0xffaaaa); // Tinge de vermelho claro
+        } else {
+            document.body.style.cursor = 'crosshair';
+            tooltip.style.display = 'none';
+            this.objects.forEach(o => o.material.color.setHex(0xffffff)); // Reseta cor
+        }
+    },
+
+    onClick: function(event) {
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const intersects = this.raycaster.intersectObjects(this.objects);
+        if (intersects.length > 0) {
+            const obj = intersects[0].object;
+            Game.handleAction(obj.userData.id, obj.userData);
+        } else {
+            // Clicou no chão -> Andar (simplificação, em full point-n-click seria pathfinding)
+            if (Game.state.currentVerb === 'ANDAR') {
+                // Efeito visual de clique no chão
+                Game.log("Você caminha um pouco, mas não vê nada interessante.");
+                AudioSys.sfx.step();
+            }
+        }
+    },
+
+    onResize: function() {
+        const container = document.getElementById('game-canvas');
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        const aspect = w / h;
+        const d = 10;
+        
+        this.camera.left = -d * aspect;
+        this.camera.right = d * aspect;
+        this.camera.top = d;
+        this.camera.bottom = -d;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(w, h);
+    },
+
+    animate: function() {
+        requestAnimationFrame(Scene.animate.bind(Scene));
+        // Animação idle simples (flutuar sprites)
+        const time = Date.now() * 0.002;
+        Scene.objects.forEach((obj, i) => {
+            if (obj.userData.type !== 'prop') { // Props ficam parados
+                obj.position.y = Math.sin(time + i) * 0.1; 
+            }
+        });
+        Scene.renderer.render(Scene.scene, Scene.camera);
+    }
+};
+
+// --- 5. INICIALIZAÇÃO E UI ---
+function startGame() {
+    document.getElementById('overlay').style.display = 'none';
+    AudioSys.init();
+    Art.generateAssets();
+    Scene.init();
+    Game.loadScene('start');
+    Game.updateUI();
+    
+    // Configurar botões de verbos
+    document.querySelectorAll('.verb-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.verb-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            Game.state.currentVerb = e.target.getAttribute('data-verb');
+            AudioSys.sfx.click();
+        });
+    });
+}
+
+// Fallback se Three.js não carregar
+window.onerror = function() {
+    // alert("Erro ao carregar engine. Verifique sua conexão para carregar o Three.js via CDN.");
+};
+
+</script>
+</body>
+</html>
