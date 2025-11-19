@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Sussurros da Mata Maldita</title>
+    <title>Sussurros da Mata Maldita - Edição Expandida</title>
     <style>
         /* --- ESTÉTICA RETRÔ 8-BITS --- */
         @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
@@ -34,13 +34,13 @@
         /* CANVAS THREE.JS */
         #game-canvas {
             flex-grow: 1;
-            image-rendering: pixelated; /* Garante pixels nítidos */
+            image-rendering: pixelated;
             cursor: crosshair;
         }
 
         /* INTERFACE (UI) */
         #ui-container {
-            height: 240px;
+            height: 250px;
             background-color: var(--ui-bg);
             border-top: 4px solid var(--ui-border);
             display: flex;
@@ -55,7 +55,7 @@
         #verbs-panel {
             flex: 1;
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: 1fr 1fr;
             grid-gap: 5px;
             border: 2px solid var(--ui-border);
             padding: 5px;
@@ -67,10 +67,11 @@
             border: none;
             color: var(--highlight);
             font-family: 'VT323', monospace;
-            font-size: 1.4rem;
+            font-size: 1.3rem;
             cursor: pointer;
             text-align: left;
             text-transform: uppercase;
+            padding-left: 10px;
         }
 
         .verb-btn:hover { color: #fff; }
@@ -86,16 +87,18 @@
             border: 2px solid var(--ui-border);
             padding: 10px;
             overflow-y: auto;
-            font-size: 1.2rem;
-            line-height: 1.4;
+            font-size: 1.1rem;
+            line-height: 1.3;
             display: flex;
-            flex-direction: column-reverse; /* Texto novo embaixo */
+            flex-direction: column-reverse;
         }
         
-        .log-entry { margin-bottom: 6px; border-bottom: 1px dashed #333; padding-bottom: 2px; }
+        .log-entry { margin-bottom: 4px; border-bottom: 1px dashed #222; padding-bottom: 2px; }
         .log-entry.combat { color: #ff5555; }
+        .log-entry.heal { color: #55ff55; }
         .log-entry.item { color: #55ffff; }
         .log-entry.narrative { color: #aaa; font-style: italic; }
+        .log-entry.puzzle { color: #d46536; font-weight: bold; }
 
         /* PAINEL DIREITO: INVENTÁRIO E STATUS */
         #side-panel {
@@ -110,6 +113,7 @@
             padding: 5px;
             font-size: 1.2rem;
             background: #110e14;
+            color: #fff;
         }
 
         #inventory-grid {
@@ -118,6 +122,7 @@
             background: #110e14;
             display: grid;
             grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(3, 1fr);
             grid-gap: 2px;
             padding: 2px;
             align-content: start;
@@ -125,59 +130,60 @@
 
         .inv-slot {
             width: 100%;
-            aspect-ratio: 1;
+            height: 100%;
             border: 1px solid #333;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
+            font-size: 0.8rem;
+            color: #888;
+            position: relative;
         }
         
-        .inv-slot:hover { border-color: var(--highlight); }
-        .inv-slot img { width: 80%; height: 80%; image-rendering: pixelated; }
+        .inv-slot:hover { border-color: var(--highlight); color: #fff; }
+        .inv-count { position: absolute; bottom: 0; right: 2px; color: #fff; font-size: 0.7rem;}
 
         /* TOOLTIP */
         #tooltip {
             position: absolute;
             background: rgba(0,0,0,0.9);
-            border: 1px solid #fff;
+            border: 1px solid var(--highlight);
             color: #fff;
             padding: 4px 8px;
             font-size: 1rem;
             pointer-events: none;
             display: none;
             z-index: 1000;
+            box-shadow: 0 0 10px rgba(212, 101, 54, 0.5);
         }
 
-        /* OVERLAY DE MENSAGEM (START/GAME OVER) */
+        /* OVERLAY */
         #overlay {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85);
+            background: rgba(5, 4, 8, 0.95);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             z-index: 2000;
+            text-align: center;
         }
         
-        h1 { font-size: 4rem; color: var(--highlight); margin: 0; text-shadow: 4px 4px 0 #000; text-align: center;}
+        h1 { font-size: 4rem; color: var(--highlight); margin: 0; text-shadow: 4px 4px 0 #000; line-height: 0.9; }
         .btn-start {
-            margin-top: 20px;
-            padding: 10px 30px;
+            margin-top: 30px;
+            padding: 15px 40px;
             font-size: 2rem;
             font-family: 'VT323', monospace;
             background: var(--highlight);
             border: 4px solid #fff;
             cursor: pointer;
             color: #fff;
+            transition: all 0.2s;
         }
-        .btn-start:hover { background: #fff; color: #000; }
-
-        /* Scrollbar customizada */
-        ::-webkit-scrollbar { width: 10px; }
-        ::-webkit-scrollbar-track { background: #111; }
-        ::-webkit-scrollbar-thumb { background: #444; border: 1px solid #000; }
+        .btn-start:hover { transform: scale(1.05); background: #fff; color: #000; }
 
     </style>
     <!-- IMPORTANDO THREE.JS VIA CDN -->
@@ -188,9 +194,9 @@
     <!-- MENSAGEM INICIAL / GAME OVER -->
     <div id="overlay">
         <h1>SUSSURROS DA<br>MATA MALDITA</h1>
-        <p style="font-size: 1.5rem; color: #888;">Um RPG 8-Bits Point-and-Click</p>
+        <p style="font-size: 1.5rem; color: #888; margin-top: 10px;">Edição Expandida: Puzzles, Masmorras & Combate</p>
         <button class="btn-start" onclick="startGame()">ENTRAR NA FLORESTA</button>
-        <p style="font-size: 1rem; margin-top:20px;">Use F11 para Tela Cheia</p>
+        <p style="font-size: 1rem; margin-top:20px; color: #555;">DICA: Use 'ATACAR' para lutar um turno.<br>Use 'USAR' + Clique na Poção para curar.</p>
     </div>
 
     <!-- TOOLTIP DINÂMICO -->
@@ -212,7 +218,6 @@
                 <button class="verb-btn" data-verb="ABRIR">ABRIR</button>
                 <button class="verb-btn" data-verb="ATACAR">ATACAR</button>
                 <button class="verb-btn" data-verb="EMPURRAR">EMPURRAR</button>
-                <button class="verb-btn" data-verb="DAR">DAR</button>
             </div>
 
             <!-- Log -->
@@ -223,8 +228,8 @@
             <!-- Stats & Inv -->
             <div id="side-panel">
                 <div id="stats-box">
-                    VIGOR: <span id="hp-val">10</span>/20<br>
-                    SORTE: <span id="luck-val">8</span>
+                    VIGOR: <span id="hp-val" style="color:#5f5">20</span>/20<br>
+                    SORTE: <span id="luck-val" style="color:#ee5">10</span>
                 </div>
                 <div id="inventory-grid">
                     <!-- Slots gerados via JS -->
@@ -235,17 +240,82 @@
 
 <script>
 /**
- * SUSSURROS DA MATA MALDITA
+ * SUSSURROS DA MATA MALDITA - V2.0
  * Arquivo Único - Three.js + Canvas API + Web Audio API
  */
 
-// --- 1. SISTEMA DE ÁUDIO (Procedural / Synth) ---
+// --- 1. SISTEMA DE ÁUDIO AVANÇADO (Ambiente + SFX) ---
 const AudioSys = {
     ctx: null,
+    masterGain: null,
+    ambienceNode: null,
+    ambienceGain: null,
+    
     init: function() {
         window.AudioContext = window.AudioContext || window.webkitAudioContext;
         this.ctx = new AudioContext();
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.value = 0.5;
+        this.masterGain.connect(this.ctx.destination);
+
+        this.ambienceGain = this.ctx.createGain();
+        this.ambienceGain.connect(this.masterGain);
     },
+
+    // Gera ruído rosa para vento/caverna
+    createNoiseBuffer: function() {
+        const bufferSize = 2 * this.ctx.sampleRate;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const output = buffer.getChannelData(0);
+        let b0, b1, b2, b3, b4, b5, b6;
+        b0 = b1 = b2 = b3 = b4 = b5 = b6 = 0.0;
+        for (let i = 0; i < bufferSize; i++) {
+            const white = Math.random() * 2 - 1;
+            b0 = 0.99886 * b0 + white * 0.0555179;
+            b1 = 0.99332 * b1 + white * 0.0750759;
+            b2 = 0.96900 * b2 + white * 0.1538520;
+            b3 = 0.86650 * b3 + white * 0.3104856;
+            b4 = 0.55000 * b4 + white * 0.5329522;
+            b5 = -0.7616 * b5 - white * 0.0168980;
+            output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+            output[i] *= 0.11; 
+            b6 = white * 0.115926;
+        }
+        return buffer;
+    },
+
+    playAmbience: function(type) {
+        if (!this.ctx) return;
+        if (this.ambienceNode) {
+            this.ambienceNode.stop();
+            this.ambienceNode = null;
+        }
+
+        const buffer = this.createNoiseBuffer();
+        const src = this.ctx.createBufferSource();
+        src.buffer = buffer;
+        src.loop = true;
+
+        // Filtro para mudar o "tom" do ambiente
+        const filter = this.ctx.createBiquadFilter();
+        if (type === 'forest') {
+            filter.type = 'lowpass';
+            filter.frequency.value = 400; // Vento abafado
+            this.ambienceGain.gain.value = 0.3;
+        } else if (type === 'cave') {
+            filter.type = 'highpass';
+            filter.frequency.value = 100; // Ecos
+            this.ambienceGain.gain.value = 0.6;
+        } else {
+            this.ambienceGain.gain.value = 0; // Sem som
+        }
+
+        src.connect(filter);
+        filter.connect(this.ambienceGain);
+        src.start();
+        this.ambienceNode = src;
+    },
+
     playTone: function(freq, type, duration, vol=0.1) {
         if (!this.ctx) return;
         const osc = this.ctx.createOscillator();
@@ -255,157 +325,133 @@ const AudioSys = {
         gain.gain.setValueAtTime(vol, this.ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this.masterGain);
         osc.start();
         osc.stop(this.ctx.currentTime + duration);
     },
+
     sfx: {
-        step: () => AudioSys.playTone(100, 'triangle', 0.05, 0.05),
-        click: () => AudioSys.playTone(800, 'square', 0.05, 0.05),
-        error: () => AudioSys.playTone(150, 'sawtooth', 0.2, 0.1),
+        step: (terrain) => {
+            const f = terrain === 'stone' ? 200 : 100;
+            AudioSys.playTone(f, 'triangle', 0.05, 0.1);
+        },
+        click: () => AudioSys.playTone(800, 'square', 0.03, 0.05),
+        error: () => AudioSys.playTone(150, 'sawtooth', 0.3, 0.2),
         item: () => {
             AudioSys.playTone(1200, 'sine', 0.1, 0.1); 
-            setTimeout(()=>AudioSys.playTone(1800, 'sine', 0.2, 0.1), 100);
+            setTimeout(()=>AudioSys.playTone(1800, 'sine', 0.3, 0.1), 100);
         },
-        hit: () => AudioSys.playTone(60, 'sawtooth', 0.1, 0.2),
+        potion: () => { // Som de beber
+            AudioSys.playTone(400, 'sine', 0.1, 0.2);
+            setTimeout(()=>AudioSys.playTone(600, 'sine', 0.2, 0.2), 100);
+        },
+        puzzle: () => { // Som de runa
+            AudioSys.playTone(220, 'sine', 0.5, 0.2);
+        },
+        puzzleSolve: () => {
+            [523, 659, 783, 1046].forEach((f, i) => setTimeout(() => AudioSys.playTone(f, 'triangle', 0.4, 0.2), i*200));
+        },
+        hit: () => AudioSys.playTone(60, 'sawtooth', 0.1, 0.3),
+        attack: () => AudioSys.playTone(300, 'square', 0.1, 0.1),
         win: () => {
-            [440, 554, 659, 880].forEach((f, i) => setTimeout(() => AudioSys.playTone(f, 'square', 0.3, 0.1), i*150));
+            [440, 554, 659, 880].forEach((f, i) => setTimeout(() => AudioSys.playTone(f, 'square', 0.3, 0.2), i*150));
         }
-    },
-    startAmbience: function() {
-        // Simulação simples de vento/ambiente com ruído rosa (simplificado)
-        if (!this.ctx) return;
-        // Para brevidade, focaremos nos SFX reativos.
     }
 };
 
 // --- 2. GERADOR DE ASSETS GRÁFICOS (Pixel Art Procedural) ---
 const Art = {
     cache: {},
-    // Cria textura Three.js a partir de uma matriz de cores simples
+    pal: {
+        blk: '#050408', blu: '#1d2b53', pur: '#7e2553', grn: '#008751',
+        brn: '#ab5236', gry: '#5f574f', wht: '#fff1e8', red: '#ff004d',
+        org: '#ffa300', yel: '#ffec27', stone: '#757161', drk: '#222034'
+    },
     createTexture: function(name, width, height, palette, pixels) {
         if (this.cache[name]) return this.cache[name];
-
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-
-        // Desenha os pixels
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
-                const colorCode = pixels[y * width + x];
-                if (colorCode !== 0) { // 0 é transparente
-                    ctx.fillStyle = palette[colorCode];
+                const code = pixels[y * width + x];
+                if (code !== 0) { 
+                    ctx.fillStyle = palette[code];
                     ctx.fillRect(x, y, 1, 1);
                 }
             }
         }
-
         const texture = new THREE.CanvasTexture(canvas);
-        texture.magFilter = THREE.NearestFilter; // Pixel art nítido
+        texture.magFilter = THREE.NearestFilter;
         texture.minFilter = THREE.NearestFilter;
         this.cache[name] = texture;
         return texture;
     },
-    // Paleta de Cores (Pico-8 inspirado)
-    pal: {
-        blk: '#000000', blu: '#1d2b53', pur: '#7e2553', grn: '#008751',
-        brn: '#ab5236', gry: '#5f574f', wht: '#fff1e8', red: '#ff004d',
-        org: '#ffa300', yel: '#ffec27', gr2: '#83769c', cyn: '#29adff'
-    },
     generateAssets: function() {
         const P = this.pal;
-        // 8x8 ou 16x16 representações simplificadas
-        // Chão (Tile)
-        this.createTexture('grass', 8, 8, {1:P.grn, 2:P.blk}, 
-            [1,1,1,1,1,1,1,1, 1,2,1,1,1,1,2,1, 1,1,1,1,1,1,1,1, 1,1,2,1,1,2,1,1,
-             1,1,1,1,1,1,1,1, 2,1,1,1,1,1,1,2, 1,1,1,1,1,1,1,1, 1,1,1,2,1,1,1,1]);
-        
-        // Árvore (Sprite)
+        // 1. Texturas de Terreno
+        this.createTexture('grass', 4, 4, {1:P.grn, 2:P.blk}, [1,2,1,1, 1,1,1,2, 2,1,1,1, 1,1,2,1]);
+        this.createTexture('floor_stone', 4, 4, {1:P.gry, 2:P.stone}, [1,1,2,1, 1,2,2,1, 2,1,1,1, 1,1,1,2]);
+        this.createTexture('wall', 4, 4, {1:P.drk, 2:P.gry}, [1,2,1,2, 2,1,2,1, 1,2,1,2, 2,1,2,1]);
+
+        // 2. Sprites (8x8 ou 16x16)
+        const npc = [0,0,1,1,1,0,0,0, 0,0,1,3,1,0,0,0, 0,2,2,2,2,2,0,0, 0,0,2,2,2,0,0,0, 0,0,2,0,2,0,0,0, 0,0,1,0,1,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0];
+        this.createTexture('npc', 8, 8, {1:P.wht, 2:P.blu, 3:P.red}, npc);
+
+        const skull = [0,0,1,1,1,0,0,0, 0,1,1,1,1,1,0,0, 1,1,2,1,2,1,1,0, 1,1,1,1,1,1,1,0, 0,1,2,1,2,1,0,0, 0,0,1,2,1,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0];
+        this.createTexture('skull', 8, 8, {1:P.wht, 2:P.blk}, skull);
+
+        const spider = [1,0,0,0,0,0,0,1, 0,1,0,0,0,0,1,0, 0,0,1,2,2,1,0,0, 0,0,2,3,3,2,0,0, 0,0,2,3,3,2,0,0, 0,0,1,2,2,1,0,0, 0,1,0,0,0,0,1,0, 1,0,0,0,0,0,0,1];
+        this.createTexture('spider', 8, 8, {1:P.blk, 2:P.drk, 3:P.red}, spider);
+
+        const potion = [0,0,0,1,0,0,0,0, 0,0,1,2,1,0,0,0, 0,0,1,3,1,0,0,0, 0,1,3,3,3,1,0,0, 0,1,3,3,3,1,0,0, 0,1,3,3,3,1,0,0, 0,0,1,1,1,0,0,0, 0,0,0,0,0,0,0,0];
+        this.createTexture('potion', 8, 8, {1:P.wht, 2:P.gry, 3:P.red}, potion);
+
+        const rune = [0,1,1,1,1,1,1,0, 1,2,2,2,2,2,2,1, 1,2,3,2,2,3,2,1, 1,2,2,3,3,2,2,1, 1,2,2,3,3,2,2,1, 1,2,3,2,2,3,2,1, 1,2,2,2,2,2,2,1, 0,1,1,1,1,1,1,0];
+        this.createTexture('rune_active', 8, 8, {1:P.stone, 2:P.gry, 3:P.cyn}, rune);
+        this.createTexture('rune_inactive', 8, 8, {1:P.stone, 2:P.gry, 3:P.blk}, rune);
+
+        // Árvore
         this.createTexture('tree', 16, 16, {1:P.grn, 2:P.brn, 3:P.blk},
-            [0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,
-             0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,
-             0,1,1,1,3,1,1,1,1,1,0,0,0,0,0,0,
-             0,1,1,1,1,1,3,1,1,1,0,0,0,0,0,0,
-             0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,
-             0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,
-             0,0,0,0,2,2,2,0,0,0,0,0,0,0,0,0,
-             0,0,0,0,2,3,2,0,0,0,0,0,0,0,0,0,
-             0,0,0,0,2,2,2,0,0,0,0,0,0,0,0,0, // Tronco
-             0,0,0,2,2,2,2,2,0,0,0,0,0,0,0,0, // Raiz
-             ].concat(new Array(16*6).fill(0)));
-
-        // Personagem/NPC (Genérico)
-        this.createTexture('npc', 8, 8, {1:P.wht, 2:P.blu, 3:P.red}, 
-            [0,0,1,1,1,0,0,0, 
-             0,0,1,3,1,0,0,0, 
-             0,2,2,2,2,2,0,0, 
-             0,0,2,2,2,0,0,0,
-             0,0,2,0,2,0,0,0,
-             0,0,1,0,1,0,0,0,
-             0,0,0,0,0,0,0,0,
-             0,0,0,0,0,0,0,0]);
-
-        // Inimigo (Caveira)
-        this.createTexture('skull', 8, 8, {1:P.wht, 2:P.blk}, 
-            [0,0,1,1,1,0,0,0, 
-             0,1,1,1,1,1,0,0, 
-             1,1,2,1,2,1,1,0, 
-             1,1,1,1,1,1,1,0, 
-             0,1,2,1,2,1,0,0, 
-             0,0,1,2,1,0,0,0,
-             0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]);
-
-        // Item (Chave/Ouro)
-        this.createTexture('item', 8, 8, {1:P.yel, 2:P.org}, 
-            [0,0,1,1,1,0,0,0, 
-             0,1,2,2,2,1,0,0, 
-             0,1,2,1,2,1,0,0, 
-             0,0,1,2,1,0,0,0, 
-             0,0,0,1,0,0,0,0, 
-             0,0,0,1,0,0,0,0,
-             0,0,1,1,1,0,0,0, 0,0,0,0,0,0,0,0]);
+            [0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0, 0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0, 0,1,1,1,3,1,1,1,1,1,0,0,0,0,0,0, 0,1,1,1,1,1,3,1,1,1,0,0,0,0,0,0,
+             0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0, 0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0, 0,0,0,0,2,2,2,0,0,0,0,0,0,0,0,0, 0,0,0,0,2,3,2,0,0,0,0,0,0,0,0,0,
+             0,0,0,0,2,2,2,0,0,0,0,0,0,0,0,0, 0,0,0,2,2,2,2,2,0,0,0,0,0,0,0,0].concat(new Array(16*6).fill(0)));
              
-        // Porta/Portal
-        this.createTexture('door', 16, 16, {1:P.gry, 2:P.blk},
-            new Array(256).fill(1).map((v,i) => (i%16===0 || i%16===15 || i<16) ? 1 : 2));
+        // Porta
+        this.createTexture('door', 16, 16, {1:P.gry, 2:P.blk, 3:P.org},
+            new Array(256).fill(1).map((v,i) => (i%16===0 || i%16===15 || i<16) ? 1 : (i>200 && i<220 && i%16>6 && i%16<10) ? 3 : 2));
     }
 };
 
-// --- 3. ESTADO E LÓGICA DO JOGO ---
+// --- 3. LÓGICA DO JOGO ---
 const Game = {
     state: {
         currentVerb: 'ANDAR',
-        inventory: [],
-        flags: {}, // Armazena estados (porta aberta, boss morto)
+        inventory: ['Poção'], // Começa com uma para teste
+        flags: { puzzle: [] }, 
         stats: { hp: 20, maxHp: 20, luck: 10 },
         location: 'start'
     },
     
-    // Motor de Textos e Lógica
     log: function(text, type='normal') {
         const logPanel = document.getElementById('log-panel');
         const entry = document.createElement('div');
         entry.className = `log-entry ${type}`;
         entry.innerText = `> ${text}`;
         logPanel.prepend(entry);
-        // Limite de logs para não travar
-        if (logPanel.children.length > 50) logPanel.lastChild.remove();
     },
 
-    // --- AÇÕES E VERBOS ---
+    // --- LÓGICA DE AÇÃO ---
     handleAction: function(objId, objData) {
         const verb = this.state.currentVerb;
         const flags = this.state.flags;
 
-        AudioSys.sfx.click();
-
-        // Lógica genérica de movimento
+        // 1. Movimento (Mudança de Cena)
         if (verb === 'ANDAR') {
             if (objData.type === 'exit') {
                 this.loadScene(objData.target);
-                AudioSys.sfx.step();
+                AudioSys.sfx.step(objData.terrain || 'grass');
                 return;
             } else {
                 this.log("Não posso ir para lá.", "narrative");
@@ -414,375 +460,442 @@ const Game = {
             }
         }
 
-        // Lógica específica do objeto
-        if (objId === 'old_man') {
-            if (verb === 'FALAR') {
-                this.log("Velho: 'A mata devora os tolos. Pegue o talismã nas ruínas antes de enfrentar o Guardião.'", "narrative");
-            } else if (verb === 'OLHAR') {
-                this.log("Um morador local com olhos aterrorizados.");
-            } else {
-                this.log("Ele não reagiu.");
-            }
-        }
-        else if (objId === 'chest') {
-            if (verb === 'ABRIR') {
-                if (flags.chestOpen) {
-                    this.log("Já está aberto.");
-                } else {
-                    flags.chestOpen = true;
-                    Scene.updateVisuals(); // Troca sprite se possível
-                    this.log("Você abriu o baú velho. Tem uma poção dentro!");
-                    AudioSys.sfx.item();
-                    // Adiciona item ao mundo (simulado aqui apenas adicionando ao inv ou log)
-                    this.addToInventory('Poção');
-                }
-            } else if (verb === 'OLHAR') this.log("Um baú de madeira podre.");
-        }
-        else if (objId === 'guardian') {
+        // 2. Interações Específicas
+        if (objData.type === 'enemy') {
             if (verb === 'ATACAR') {
-                this.combat('Guardião Corrompido', 15);
-            } else if (verb === 'FALAR') {
-                this.log("Guardião: 'GRRRRAAAAHHH!' (Ele não parece querer papo).", "combat");
+                this.combatRound(objData);
             } else if (verb === 'OLHAR') {
-                this.log("Uma massa de vinhas e ossos.");
+                this.log(`Inimigo: ${objData.name}. HP: ${objData.hp}`, "combat");
+            } else {
+                this.log("Melhor não irritar mais...", "narrative");
             }
+            return;
         }
-        else if (objId === 'key_item') {
-            if (verb === 'PEGAR') {
-                this.addToInventory('Chave Enferrujada');
-                flags.hasKey = true;
-                Scene.removeObject(objId); // Remove da cena 3D
-                this.log("Pegou a Chave Enferrujada.");
-                AudioSys.sfx.item();
-            } else if (verb === 'OLHAR') this.log("Uma chave antiga no chão.");
-        }
-        else if (objId === 'gate') {
-            if (verb === 'ABRIR') {
-                if (flags.hasKey) {
-                    this.log("A chave gira! O portão se abre.");
-                    flags.gateOpen = true;
-                    AudioSys.sfx.win(); // Som de sucesso
-                    Scene.loadScene('deep_forest'); // Força transição ou habilita
-                } else {
-                    this.log("Trancado. Precisa de uma chave.", "error");
+
+        // 3. Puzzles e Objetos
+        switch(objId) {
+            case 'rune_1': case 'rune_2': case 'rune_3':
+                if (verb === 'USAR' || verb === 'EMPURRAR') {
+                    this.handlePuzzle(objId, objData);
+                } else if (verb === 'OLHAR') this.log("Uma runa mágica gravada no chão.");
+                break;
+            
+            case 'chest':
+                if (verb === 'ABRIR') {
+                    if (flags.chestOpen) this.log("Vazio.");
+                    else {
+                        flags.chestOpen = true;
+                        this.log("Encontrou: Poção e Mapa!");
+                        this.addToInventory('Poção');
+                        this.addToInventory('Poção'); // Dá duas
+                        AudioSys.sfx.item();
+                    }
+                }
+                break;
+
+            case 'gate':
+                if (verb === 'ABRIR') {
+                    if (flags.puzzleSolved) {
+                        this.log("O portão secreto das ruínas se abre!");
+                        flags.ruinGateOpen = true;
+                        AudioSys.sfx.win();
+                        this.loadScene('secret_room');
+                    } else {
+                        this.log("Trancado magicamente. As runas devem ser a chave.", "narrative");
+                    }
+                }
+                break;
+
+            case 'key_item':
+                if (verb === 'PEGAR') {
+                    this.addToInventory('Chave');
+                    flags.hasKey = true;
+                    Scene.removeObject(objId);
+                    this.log("Pegou a Chave Antiga.");
+                    AudioSys.sfx.item();
+                }
+                break;
+
+            case 'forest_gate':
+                if(verb === 'ABRIR') {
+                    if(flags.hasKey) {
+                        this.log("A chave abre o portão da floresta!");
+                        this.loadScene('deep_forest');
+                        AudioSys.sfx.win();
+                    } else this.log("Trancado. Precisa de uma chave.");
+                }
+                break;
+
+            default:
+                if (verb === 'OLHAR') this.log(`Você vê: ${objData.name}`);
+                else if (verb === 'FALAR' && objData.type === 'npc') this.log(`${objData.name}: "Cuidado com as aranhas na caverna..."`);
+                else {
+                    this.log("Nada acontece.");
                     AudioSys.sfx.error();
                 }
-            } else if (verb === 'OLHAR') this.log("Um portão de ferro bloqueando o caminho.");
-        }
-        else {
-            // Resposta padrão
-            const responses = ["Nada acontece.", "Não funcionou.", "Sem efeito."];
-            this.log(responses[Math.floor(Math.random() * responses.length)]);
         }
     },
 
-    addToInventory: function(itemName) {
-        this.state.inventory.push(itemName);
+    // --- PUZZLE DAS RUNAS ---
+    handlePuzzle: function(id, data) {
+        const correctOrder = ['rune_1', 'rune_3', 'rune_2']; // Esquerda, Direita, Meio
+        const current = this.state.flags.puzzle;
+        
+        // Se já clicou nesta, reseta
+        if(current.includes(id)) {
+            this.log("A runa apaga. A sequência quebrou.", "combat");
+            this.state.flags.puzzle = [];
+            Scene.updateVisuals(); // Reseta cores
+            AudioSys.sfx.error();
+            return;
+        }
+
+        current.push(id);
+        this.log("A runa brilha intensamente...", "puzzle");
+        AudioSys.sfx.puzzle();
+        
+        // Muda visual temporariamente
+        Scene.getObject(id).material.map = Art.cache['rune_active'];
+
+        // Verifica ordem
+        if (current.length === correctOrder.length) {
+            if (JSON.stringify(current) === JSON.stringify(correctOrder)) {
+                this.log("A terra treme! O selo foi quebrado.", "heal");
+                this.state.flags.puzzleSolved = true;
+                AudioSys.sfx.puzzleSolve();
+            } else {
+                this.log("Um choque percorre o chão! Sequência errada.", "combat");
+                this.state.flags.puzzle = [];
+                setTimeout(() => Scene.updateVisuals(), 500); // Apaga após um tempo
+                AudioSys.sfx.error();
+                this.takeDamage(2);
+            }
+        }
+    },
+
+    // --- COMBATE POR TURNOS ---
+    combatRound: function(enemy) {
+        AudioSys.sfx.attack();
+        
+        // Player Ataca
+        const dmg = Math.floor(Math.random() * 4) + 2; // 2-5 dmg
+        enemy.hp -= dmg;
+        this.log(`Você ataca ${enemy.name} causando ${dmg} de dano!`, "item");
+
+        // Checa Vitória
+        if (enemy.hp <= 0) {
+            this.log(`${enemy.name} morreu!`, "heal");
+            AudioSys.sfx.win();
+            Scene.removeObject(enemy.id);
+            
+            if (enemy.id === 'boss') {
+                this.log("VOCÊ DESTRUIU O MAL DA FLORESTA!", "puzzle");
+                setTimeout(() => alert("VITÓRIA! OBRIGADO POR JOGAR."), 1000);
+            }
+            return;
+        }
+
+        // Inimigo Ataca (Resposta)
+        setTimeout(() => {
+            const enemyDmg = Math.floor(Math.random() * 3) + 1; // 1-3 dmg
+            this.takeDamage(enemyDmg);
+            this.log(`${enemy.name} contra-ataca! -${enemyDmg} HP`, "combat");
+        }, 500);
+    },
+
+    takeDamage: function(amount) {
+        this.state.stats.hp -= amount;
+        AudioSys.sfx.hit();
+        this.updateUI();
+        if (this.state.stats.hp <= 0) {
+            this.log("VOCÊ CAIU EM COMBATE...", "combat");
+            document.getElementById('overlay').style.display = 'flex';
+            document.querySelector('h1').innerText = "GAME OVER";
+        }
+    },
+
+    // --- INVENTÁRIO E ITENS ---
+    addToInventory: function(item) {
+        this.state.inventory.push(item);
         this.updateUI();
     },
 
-    updateUI: function() {
-        // Stats
-        document.getElementById('hp-val').innerText = this.state.stats.hp;
+    useItem: function(index) {
+        const item = this.state.inventory[index];
         
-        // Inv
+        if (this.state.currentVerb !== 'USAR') {
+            this.log(`Selecione 'USAR' para consumir ${item}.`, "narrative");
+            return;
+        }
+
+        if (item === 'Poção') {
+            const heal = 10;
+            this.state.stats.hp = Math.min(this.state.stats.hp + heal, this.state.stats.maxHp);
+            this.log(`Você bebe a poção. +${heal} HP.`, "heal");
+            AudioSys.sfx.potion();
+            this.state.inventory.splice(index, 1); // Remove 1 item
+            this.updateUI();
+        } else {
+            this.log(`Não sei como usar ${item} aqui.`);
+        }
+    },
+
+    updateUI: function() {
+        document.getElementById('hp-val').innerText = this.state.stats.hp;
         const grid = document.getElementById('inventory-grid');
         grid.innerHTML = '';
-        this.state.inventory.forEach(item => {
+        this.state.inventory.forEach((item, idx) => {
             const div = document.createElement('div');
             div.className = 'inv-slot';
-            div.title = item;
-            // Ícone gerado (reusando a textura do item convertida para dataURL seria ideal, 
-            // mas aqui usaremos texto ou emoji para simplicidade no DOM)
-            div.innerText = item.substring(0,2); 
-            div.onclick = () => {
-                this.log(`Item selecionado: ${item}`);
-                // Lógica de combinar/usar poderia vir aqui
-            };
+            // Nome abreviado
+            div.innerText = item.substring(0,3).toUpperCase();
+            
+            // Contador se tiver múltiplos (simplificado, mostra todos soltos)
+            div.onclick = () => this.useItem(idx);
             grid.appendChild(div);
         });
     },
 
-    combat: function(enemyName, enemyHp) {
-        this.log(`Combate iniciado contra ${enemyName}!`, "combat");
-        // Simulação simples
-        const playerRoll = Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1;
-        const enemyRoll = Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1;
+    loadScene: function(key) {
+        this.state.location = key;
+        Scene.build(key);
         
-        if (playerRoll >= enemyRoll) {
-            this.log(`Você acertou! (Rolagem ${playerRoll} vs ${enemyRoll})`, "item");
-            enemyHp -= 5;
-            AudioSys.sfx.hit();
-            if (enemyHp <= 0) {
-                this.log(`${enemyName} foi derrotado!`, "win");
-                AudioSys.sfx.win();
-                this.state.flags.bossDead = true;
-                Scene.removeObject('guardian');
-            } else {
-                // Recursão simples para continuar combate ou turno
-                setTimeout(() => this.combat(enemyName, enemyHp), 1000);
-            }
-        } else {
-            this.log(`O inimigo te acertou! (Rolagem ${playerRoll} vs ${enemyRoll})`, "combat");
-            this.state.stats.hp -= 2;
-            AudioSys.sfx.hit();
-            this.updateUI();
-            if (this.state.stats.hp <= 0) {
-                this.log("VOCÊ MORREU...", "combat");
-                setTimeout(() => alert("Game Over - Recarregue para tentar novamente"), 1000);
-            } else {
-                setTimeout(() => this.combat(enemyName, enemyHp), 1000);
-            }
-        }
-    },
+        // Audio Ambiente
+        const ambience = Scene.data[key].ambience || 'forest';
+        AudioSys.playAmbience(ambience);
 
-    loadScene: function(sceneKey) {
-        Scene.build(sceneKey);
-        this.log(`--- ${Scene.data[sceneKey].name} ---`, "narrative");
-        this.log(Scene.data[sceneKey].desc);
+        this.log(`--- ${Scene.data[key].name} ---`, "narrative");
+        this.log(Scene.data[key].desc);
     }
 };
 
-// --- 4. CENA E RENDERIZAÇÃO (THREE.JS) ---
+// --- 4. CENA (THREE.JS) ---
 const Scene = {
-    scene: null,
-    camera: null,
-    renderer: null,
-    raycaster: new THREE.Raycaster(),
-    mouse: new THREE.Vector2(),
-    objects: [], // Armazena objetos interativos
-    
-    init: function() {
-        const container = document.getElementById('game-canvas');
-        const w = container.clientWidth;
-        const h = container.clientHeight;
+    scene: null, camera: null, renderer: null,
+    raycaster: new THREE.Raycaster(), mouse: new THREE.Vector2(),
+    objects: [],
 
-        // Câmera Ortográfica para visual 2D puro
-        // Zoom baixo para mostrar pixels grandes
-        const aspect = w / h;
-        const d = 10; // View size
-        this.camera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 1, 1000);
-        this.camera.position.set(20, 20, 20); // Isométrico fake
-        this.camera.lookAt(0, 0, 0);
+    data: {
+        'start': {
+            name: 'Vila Sombria',
+            desc: 'O vento uiva. Há uma Caverna ao leste e a Trilha ao norte.',
+            ambience: 'forest',
+            terrain: 'grass',
+            map: [
+                { id: 'npc1', type: 'npc', pos: [-2,0,-2], sprite: 'npc', name: 'Aldeão' },
+                { id: 'to_forest', type: 'exit', target: 'forest_path', pos: [0,0,-6], sprite: 'door', name: 'Trilha' },
+                { id: 'to_cave', type: 'exit', target: 'cave_entrance', pos: [6,0,0], sprite: 'door', name: 'Caverna' }
+            ]
+        },
+        'cave_entrance': {
+            name: 'Entrada da Caverna',
+            desc: 'Úmida e escura. Teias de aranha cobrem as pedras.',
+            ambience: 'cave',
+            terrain: 'stone',
+            map: [
+                { id: 'spider1', type: 'enemy', pos: [3,0,-3], sprite: 'spider', name: 'Aranha Gigante', hp: 10 },
+                { id: 'chest', type: 'prop', pos: [5,0,-5], sprite: 'potion', name: 'Baú do Aventureiro' }, // Sprite reuse
+                { id: 'back_vila', type: 'exit', target: 'start', pos: [-6,0,6], sprite: 'door', name: 'Sair' }
+            ],
+            walls: true
+        },
+        'forest_path': {
+            name: 'Trilha Antiga',
+            desc: 'Uma bifurcação. Ruínas à esquerda, Mata Fechada à frente (Trancada).',
+            ambience: 'forest',
+            map: [
+                { id: 'to_start', type: 'exit', target: 'start', pos: [0,0,6], sprite: 'door', name: 'Voltar' },
+                { id: 'to_ruins', type: 'exit', target: 'ruins_hall', pos: [-6,0,0], sprite: 'door', name: 'Ruínas' },
+                { id: 'forest_gate', type: 'prop', pos: [0,0,-6], sprite: 'door', name: 'Portão da Mata' }
+            ],
+            trees: 10
+        },
+        'ruins_hall': {
+            name: 'Salão das Runas',
+            desc: 'Três runas no chão: Esquerda(1), Centro(2), Direita(3). Descubra a ordem.',
+            ambience: 'cave',
+            terrain: 'stone',
+            map: [
+                { id: 'rune_1', type: 'prop', pos: [-4,0,0], sprite: 'rune_inactive', name: 'Runa 1' },
+                { id: 'rune_2', type: 'prop', pos: [0,0,-2], sprite: 'rune_inactive', name: 'Runa 2' },
+                { id: 'rune_3', type: 'prop', pos: [4,0,0], sprite: 'rune_inactive', name: 'Runa 3' },
+                { id: 'gate', type: 'prop', pos: [0,0,-6], sprite: 'door', name: 'Portão Selado' },
+                { id: 'back_path', type: 'exit', target: 'forest_path', pos: [0,0,6], sprite: 'door', name: 'Sair' }
+            ],
+            walls: true
+        },
+        'secret_room': {
+            name: 'Câmara Secreta',
+            desc: 'Um local esquecido. A chave brilha no altar.',
+            ambience: 'cave',
+            terrain: 'stone',
+            map: [
+                { id: 'key_item', type: 'prop', pos: [0,0,0], sprite: 'potion', name: 'Chave Mágica' }, // Reuse sprite
+                { id: 'back_hall', type: 'exit', target: 'ruins_hall', pos: [0,0,6], sprite: 'door', name: 'Voltar' }
+            ],
+            walls: true
+        },
+        'deep_forest': {
+            name: 'Coração da Corrupção',
+            desc: 'O Guardião te espera.',
+            ambience: 'forest',
+            map: [
+                { id: 'boss', type: 'enemy', pos: [0,0,-2], sprite: 'skull', name: 'Guardião', hp: 30 }
+            ],
+            trees: 20
+        }
+    },
+
+    init: function() {
+        const c = document.getElementById('game-canvas');
+        const w = c.clientWidth, h = c.clientHeight;
+        const aspect = w/h; const d = 12;
+        
+        this.camera = new THREE.OrthographicCamera(-d*aspect, d*aspect, d, -d, 1, 1000);
+        this.camera.position.set(20, 20, 20);
+        this.camera.lookAt(0,0,0);
 
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x050408); // Fundo escuro
-
+        this.scene.background = new THREE.Color(0x050408);
+        
         this.renderer = new THREE.WebGLRenderer({ antialias: false });
         this.renderer.setSize(w, h);
-        this.renderer.setPixelRatio(window.devicePixelRatio > 1 ? 1 : 1); // Força 1 para pixel art crisp
-        container.appendChild(this.renderer.domElement);
+        this.renderer.setPixelRatio(1);
+        c.appendChild(this.renderer.domElement);
 
-        // Luz simples (necessária para MeshLambert ou Phong, mas usaremos Basic para 8bit flat)
-        // Adicionando apenas para compatibilidade futura se mudar material
-        const ambient = new THREE.AmbientLight(0xffffff, 1);
-        this.scene.add(ambient);
-
-        // Eventos de Mouse
-        this.renderer.domElement.addEventListener('mousemove', this.onMouseMove.bind(this));
-        this.renderer.domElement.addEventListener('mousedown', this.onClick.bind(this));
-        window.addEventListener('resize', this.onResize.bind(this));
-
+        c.addEventListener('mousemove', this.onMove.bind(this));
+        c.addEventListener('mousedown', this.onClick.bind(this));
+        
         this.animate();
     },
 
-    // Dados das Cenas (Mapa do Jogo)
-    data: {
-        'start': {
-            name: 'Vila Decadente',
-            desc: 'A fumaça sobe das chaminés frias. Um caminho leva à floresta.',
-            map: [
-                { id: 'old_man', type: 'npc', pos: [-2, 0, -2], sprite: 'npc', name: 'Velho' },
-                { id: 'sign', type: 'prop', pos: [2, 0, 0], sprite: 'item', name: 'Placa' }, // Placeholder
-                { id: 'forest_entry', type: 'exit', target: 'forest_path', pos: [5, 0, -5], sprite: 'door', name: 'Entrada da Mata' }
-            ]
-        },
-        'forest_path': {
-            name: 'Trilha da Floresta',
-            desc: 'Árvores retorcidas bloqueiam a luz. Há dois caminhos.',
-            map: [
-                { id: 'back', type: 'exit', target: 'start', pos: [-5, 0, 5], sprite: 'door', name: 'Voltar para Vila' },
-                { id: 'ruins_path', type: 'exit', target: 'ruins', pos: [4, 0, -4], sprite: 'door', name: 'Ruínas' },
-                { id: 'gate', type: 'prop', pos: [0, 0, -8], sprite: 'door', name: 'Portão Trancado' } // Leva ao boss
-            ],
-            trees: 10 // Gerar árvores aleatórias
-        },
-        'ruins': {
-            name: 'Ruínas Antigas',
-            desc: 'Pedras cobertas de musgo. Algo brilha no chão.',
-            map: [
-                { id: 'back_path', type: 'exit', target: 'forest_path', pos: [-6, 0, 6], sprite: 'door', name: 'Voltar' },
-                { id: 'key_item', type: 'item', pos: [0, 0, 0], sprite: 'item', name: 'Chave' },
-                { id: 'chest', type: 'prop', pos: [3, 0, -3], sprite: 'item', name: 'Baú Velho' }
-            ],
-            trees: 5
-        },
-        'deep_forest': {
-            name: 'Coração da Mata',
-            desc: 'O ar é pesado aqui. O Guardião aguarda.',
-            map: [
-                { id: 'guardian', type: 'enemy', pos: [0, 0, 0], sprite: 'skull', name: 'Guardião' }
-            ],
-            trees: 15
-        }
-    },
-
-    build: function(sceneKey) {
-        // Limpa cena anterior
-        while(this.scene.children.length > 0){ 
-            this.scene.remove(this.scene.children[0]); 
-        }
+    build: function(key) {
+        while(this.scene.children.length) this.scene.remove(this.scene.children[0]);
         this.objects = [];
-        const sData = this.data[sceneKey];
-
-        // 1. Chão (Grid de tiles)
-        const planeGeo = new THREE.PlaneGeometry(1, 1);
-        const grassMat = new THREE.MeshBasicMaterial({ map: Art.cache['grass'] });
+        const data = this.data[key];
         
-        // Cria um chão 20x20
-        for(let x=-10; x<10; x+=2) {
-            for(let z=-10; z<10; z+=2) {
-                const tile = new THREE.Mesh(planeGeo, grassMat);
-                tile.position.set(x, -1, z); // Y=-1
-                tile.rotation.x = -Math.PI / 2;
-                tile.scale.set(2, 2, 1);
-                this.scene.add(tile);
+        const plane = new THREE.PlaneGeometry(1,1);
+        const matFloor = new THREE.MeshBasicMaterial({ map: Art.cache[data.terrain === 'stone' ? 'floor_stone' : 'grass'] });
+        
+        // Chão
+        for(let x=-10; x<=10; x+=2) {
+            for(let z=-10; z<=10; z+=2) {
+                const m = new THREE.Mesh(plane, matFloor);
+                m.position.set(x, -1, z);
+                m.rotation.x = -Math.PI/2;
+                m.scale.set(2,2,1);
+                this.scene.add(m);
             }
         }
 
-        // 2. Árvores decorativas (Billboard)
-        if (sData.trees) {
-            const treeMat = new THREE.MeshBasicMaterial({ map: Art.cache['tree'], transparent: true, alphaTest: 0.5 });
-            for(let i=0; i<sData.trees; i++) {
-                const tree = new THREE.Mesh(planeGeo, treeMat);
-                const tx = (Math.random() * 16 - 8);
-                const tz = (Math.random() * 16 - 8);
-                tree.position.set(tx, 0.5, tz);
-                tree.scale.set(3, 3, 1);
-                // Billboard: Olha pra câmera mas trava rotação Y pra estilo RPG 2.5D
-                // Para "Orthographic Top-Downish", geralmente fazemos um ângulo fixo
-                tree.rotation.x = -Math.PI / 4; // Inclinação para parecer em pé na vista isométrica
-                this.scene.add(tree);
+        // Paredes (Se for interior)
+        if (data.walls) {
+            const matWall = new THREE.MeshBasicMaterial({ map: Art.cache['wall'] });
+            for(let i=-10; i<=10; i+=2) {
+                // Parede Norte e Sul
+                this.addWall(i, -10, matWall); 
+                // Leste Oeste (menos aberturas)
+                if(Math.abs(i) > 2) { this.addWall(-10, i, matWall); this.addWall(10, i, matWall); }
             }
         }
 
-        // 3. Objetos Interativos
-        sData.map.forEach(obj => {
-            // Se item já foi pego, não renderiza
-            if (obj.id === 'key_item' && Game.state.flags.hasKey) return;
-            if (obj.id === 'guardian' && Game.state.flags.bossDead) return;
+        // Árvores
+        if (data.trees) {
+             const matTree = new THREE.MeshBasicMaterial({ map: Art.cache['tree'], transparent:true, alphaTest:0.5 });
+             for(let i=0; i<data.trees; i++) {
+                 const m = new THREE.Mesh(plane, matTree);
+                 m.position.set((Math.random()*16)-8, 0.5, (Math.random()*16)-8);
+                 m.scale.set(3,3,1);
+                 m.rotation.x = -Math.PI/4;
+                 this.scene.add(m);
+             }
+        }
 
-            const mat = new THREE.MeshBasicMaterial({ 
-                map: Art.cache[obj.sprite], 
-                transparent: true,
-                alphaTest: 0.5,
-                color: 0xffffff 
-            });
-            const mesh = new THREE.Mesh(planeGeo, mat);
-            mesh.position.set(obj.pos[0], 0, obj.pos[2]);
-            mesh.scale.set(2, 2, 1);
-            mesh.rotation.x = -Math.PI / 4; // Inclinação de sprite
+        // Objetos
+        data.map.forEach(o => {
+            if(o.id === 'key_item' && Game.state.flags.hasKey) return;
+            if(o.hp && o.hp <= 0) return; // Inimigo morto não renderiza
+
+            const mat = new THREE.MeshBasicMaterial({ map: Art.cache[o.sprite], transparent:true, alphaTest:0.5 });
+            const m = new THREE.Mesh(plane, mat);
+            m.position.set(o.pos[0], 0, o.pos[2]);
+            m.scale.set(2,2,1);
+            m.rotation.x = -Math.PI/4;
             
-            // Dados meta para interação
-            mesh.userData = { id: obj.id, type: obj.type, target: obj.target, name: obj.name };
+            // Propriedades de jogo no objeto 3D
+            m.userData = { ...o }; 
             
-            this.scene.add(mesh);
-            this.objects.push(mesh);
-            
-            // Sombra simples embaixo
-            const shadow = new THREE.Mesh(planeGeo, new THREE.MeshBasicMaterial({color:0x000000, transparent:true, opacity:0.3}));
-            shadow.rotation.x = -Math.PI/2;
-            shadow.position.set(obj.pos[0], -0.9, obj.pos[2]);
-            this.scene.add(shadow);
+            this.scene.add(m);
+            this.objects.push(m);
         });
     },
 
-    removeObject: function(id) {
-        const obj = this.objects.find(o => o.userData.id === id);
-        if (obj) {
-            this.scene.remove(obj);
-            this.objects = this.objects.filter(o => o !== obj);
-        }
+    addWall: function(x, z, mat) {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(1,1), mat);
+        m.position.set(x, 0.5, z);
+        m.scale.set(2,3,1);
+        m.rotation.x = -Math.PI/4; // Isométrico
+        this.scene.add(m);
     },
-    
+
+    getObject: function(id) { return this.objects.find(o => o.userData.id === id); },
+
     updateVisuals: function() {
-        // Recarrega cena se necessário para mudar estados visuais complexos
-        // Simplificado: nada por enquanto
+        // Reseta runas se falhar
+        ['rune_1', 'rune_2', 'rune_3'].forEach(id => {
+            const obj = this.getObject(id);
+            if(obj) obj.material.map = Art.cache['rune_inactive'];
+        });
     },
 
-    onMouseMove: function(event) {
-        // Converte mouse para coordenadas normalizadas (-1 a +1)
-        const rect = this.renderer.domElement.getBoundingClientRect();
-        this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-        // Raycasting
+    onMove: function(e) {
+        const r = this.renderer.domElement.getBoundingClientRect();
+        this.mouse.x = ((e.clientX - r.left)/r.width)*2 -1;
+        this.mouse.y = -((e.clientY - r.top)/r.height)*2 +1;
+        
         this.raycaster.setFromCamera(this.mouse, this.camera);
-        const intersects = this.raycaster.intersectObjects(this.objects);
-
-        const tooltip = document.getElementById('tooltip');
-        if (intersects.length > 0) {
-            const obj = intersects[0].object;
-            // Realce
+        const ints = this.raycaster.intersectObjects(this.objects);
+        const tt = document.getElementById('tooltip');
+        
+        if(ints.length > 0) {
             document.body.style.cursor = 'pointer';
-            tooltip.style.display = 'block';
-            tooltip.style.left = (event.clientX + 10) + 'px';
-            tooltip.style.top = (event.clientY + 10) + 'px';
-            tooltip.innerText = `${Game.state.currentVerb} ${obj.userData.name}`;
-            
-            obj.material.color.setHex(0xffaaaa); // Tinge de vermelho claro
+            const obj = ints[0].object;
+            obj.material.color.setHex(0xffaaaa);
+            tt.style.display = 'block';
+            tt.style.left = (e.clientX+15)+'px';
+            tt.style.top = (e.clientY+15)+'px';
+            tt.innerText = `${Game.state.currentVerb} ${obj.userData.name}`;
         } else {
             document.body.style.cursor = 'crosshair';
-            tooltip.style.display = 'none';
-            this.objects.forEach(o => o.material.color.setHex(0xffffff)); // Reseta cor
+            this.objects.forEach(o => o.material.color.setHex(0xffffff));
+            tt.style.display = 'none';
         }
     },
 
-    onClick: function(event) {
+    onClick: function() {
         this.raycaster.setFromCamera(this.mouse, this.camera);
-        const intersects = this.raycaster.intersectObjects(this.objects);
-        if (intersects.length > 0) {
-            const obj = intersects[0].object;
+        const ints = this.raycaster.intersectObjects(this.objects);
+        if(ints.length > 0) {
+            const obj = ints[0].object;
             Game.handleAction(obj.userData.id, obj.userData);
         } else {
-            // Clicou no chão -> Andar (simplificação, em full point-n-click seria pathfinding)
-            if (Game.state.currentVerb === 'ANDAR') {
-                // Efeito visual de clique no chão
-                Game.log("Você caminha um pouco, mas não vê nada interessante.");
-                AudioSys.sfx.step();
-            }
+            // Andar no chão (Feedback visual apenas)
+             if(Game.state.currentVerb === 'ANDAR') AudioSys.sfx.step(Scene.data[Game.state.location].terrain);
         }
-    },
-
-    onResize: function() {
-        const container = document.getElementById('game-canvas');
-        const w = container.clientWidth;
-        const h = container.clientHeight;
-        const aspect = w / h;
-        const d = 10;
-        
-        this.camera.left = -d * aspect;
-        this.camera.right = d * aspect;
-        this.camera.top = d;
-        this.camera.bottom = -d;
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize(w, h);
-    },
-
+    }
+    ,
     animate: function() {
-        requestAnimationFrame(Scene.animate.bind(Scene));
-        // Animação idle simples (flutuar sprites)
-        const time = Date.now() * 0.002;
-        Scene.objects.forEach((obj, i) => {
-            if (obj.userData.type !== 'prop') { // Props ficam parados
-                obj.position.y = Math.sin(time + i) * 0.1; 
-            }
+        requestAnimationFrame(this.animate.bind(this));
+        // Bobbing effect
+        const t = Date.now()*0.003;
+        this.objects.forEach((o,i) => {
+            if(o.userData.type === 'enemy' || o.userData.type === 'item') 
+                o.position.y = Math.sin(t+i)*0.1; 
         });
-        Scene.renderer.render(Scene.scene, Scene.camera);
+        this.renderer.render(this.scene, this.camera);
     }
 };
 
-// --- 5. INICIALIZAÇÃO E UI ---
 function startGame() {
     document.getElementById('overlay').style.display = 'none';
     AudioSys.init();
@@ -790,8 +903,7 @@ function startGame() {
     Scene.init();
     Game.loadScene('start');
     Game.updateUI();
-    
-    // Configurar botões de verbos
+
     document.querySelectorAll('.verb-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             document.querySelectorAll('.verb-btn').forEach(b => b.classList.remove('active'));
@@ -801,11 +913,6 @@ function startGame() {
         });
     });
 }
-
-// Fallback se Three.js não carregar
-window.onerror = function() {
-    // alert("Erro ao carregar engine. Verifique sua conexão para carregar o Three.js via CDN.");
-};
 
 </script>
 </body>
